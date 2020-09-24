@@ -1,0 +1,58 @@
+<launch>
+    <arg name="bag_name"    default="A0" />
+    <arg name="bag"         default="/home/qn/Desktop/slam_survery/dataset/ZJU_3DV/$(arg bag_name).bag" />
+    <arg name="bag_start"   default="0" /> <!-- v1-2: 0, mh1: 40, mh2: 35, mh3-5: 20 -->
+    <arg name="test_name"   default="VINS_Mono" /> <!-- v1-2: 0, mh1: 40, mh2: 35, mh3-5: 20 -->
+
+    <arg name="dosave"      default="true" />
+    <arg name="path_est"    default="/home/qn/Desktop/slam_survery/dataset/algorithms/$(arg test_name)/$(arg bag_name)/stamped_traj_estimate.txt" />
+    
+    <arg name="dotime"      default="false" />
+
+    <arg name="config_path" default = "$(find feature_tracker)/../config/ZJ_A.yaml" />
+	  <arg name="vins_path" default = "$(find feature_tracker)/../config/../" />
+    
+    <node name="feature_tracker" pkg="feature_tracker" type="feature_tracker" output="log">
+        <param name="config_file" type="string" value="$(arg config_path)" />
+        <param name="vins_folder" type="string" value="$(arg vins_path)" />
+    </node>
+
+    <node name="vins_estimator" pkg="vins_estimator" type="vins_estimator" output="screen">
+       <param name="config_file" type="string" value="$(arg config_path)" />
+       <param name="vins_folder" type="string" value="$(arg vins_path)" />
+       <param name="keyframe_num_output" type="string" value="/home/qn/Desktop/slam_survery/dataset/keyframe_num/$(arg test_name)/$(arg bag_name)_key_frame_num.txt" />
+        
+    </node>
+
+    <node name="pose_graph" pkg="pose_graph" type="pose_graph" output="log">
+        <param name="config_file" type="string" value="$(arg config_path)" />
+        <param name="visualization_shift_x" type="int" value="0" />
+        <param name="visualization_shift_y" type="int" value="0" />
+        <param name="skip_cnt" type="int" value="0" />
+        <param name="skip_dis" type="double" value="0" />
+    </node>
+
+    <node name="rvizvisualisation" pkg="rviz" type="rviz" output="log" args="-d $(find vins_estimator)/../config/vins_rviz_config.rviz" />
+
+    <!-- record the trajectory if enabled -->
+    <group if="$(arg dosave)">
+        <node name="recorder_estimate" pkg="ov_eval" type="pose_to_file" output="screen" required="true">
+            <!-- <param name="topic"      type="str" value="/pose_graph/pose_graph_path" /> -->
+            <param name="topic"      type="str" value="/pose_graph/pg_odometry" />
+            <param name="topic_type" type="str" value="Odometry" />
+            <param name="output"     type="str" value="$(arg path_est)" />
+        </node>
+    </group>
+
+    <!-- record the resources if enabled -->
+    <group if="$(arg dotime)">
+        <node name="recorder_timing" pkg="ov_eval" type="pid_ros.py" output="log" required="true">
+            <param name="nodes"   type="str" value="/feature_tracker,/vins_estimator,/pose_graph" />
+            <param name="output"  type="str" value="/home/qn/Desktop/slam_survery/dataset/psutil_logs/$(arg test_name)/$(arg bag_name)_psutil_log.txt" />
+        </node>
+    </group>
+    
+    <!-- play the dataset -->
+    <node pkg="rosbag" type="play" name="rosbag" args="-d 1 -s $(arg bag_start) $(arg bag)" required="true" />
+
+</launch>
