@@ -57,6 +57,7 @@ ros::Publisher pub_match_points;
 ros::Publisher pub_camera_pose_visual;
 ros::Publisher pub_key_odometrys;
 ros::Publisher pub_vio_path;
+ros::Publisher pub_pg_odometry;
 nav_msgs::Path no_loop_path;
 
 std::string BRIEF_PATTERN_FILE;
@@ -213,6 +214,18 @@ void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
 
     vio_t = posegraph.r_drift * vio_t + posegraph.t_drift;
     vio_q = posegraph.r_drift * vio_q;
+
+    nav_msgs::Odometry odometry;
+    odometry.header.stamp = pose_msg->header.stamp;
+    odometry.header.frame_id = "world";
+    odometry.pose.pose.position.x = vio_t.x();
+    odometry.pose.pose.position.y = vio_t.y();
+    odometry.pose.pose.position.z = vio_t.z();
+    odometry.pose.pose.orientation.x = vio_q.x();
+    odometry.pose.pose.orientation.y = vio_q.y();
+    odometry.pose.pose.orientation.z = vio_q.z();
+    odometry.pose.pose.orientation.w = vio_q.w();
+    pub_pg_odometry.publish(odometry);
 
     Vector3d vio_t_cam;
     Quaterniond vio_q_cam;
@@ -539,6 +552,7 @@ int main(int argc, char **argv)
     pub_key_odometrys = n.advertise<visualization_msgs::Marker>("key_odometrys", 1000);
     pub_vio_path = n.advertise<nav_msgs::Path>("no_loop_path", 1000);
     pub_match_points = n.advertise<sensor_msgs::PointCloud>("match_points", 100);
+    pub_pg_odometry = n.advertise<nav_msgs::Odometry>("pg_odometry", 1000);
 
     std::thread measurement_process;
     std::thread keyboard_command_process;
